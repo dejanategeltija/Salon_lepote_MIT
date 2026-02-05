@@ -1,16 +1,25 @@
 import 'package:firebase_core/firebase_core.dart'; 
+import 'firebase_options.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:salonlepote_mit/providers/theme_provider.dart';
 import 'package:salonlepote_mit/consts/theme_data.dart';
 import 'package:salonlepote_mit/screens/root_screen.dart';
 
-void main() async {
+/*void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Inicijalizacija Firebase-a
   await Firebase.initializeApp(); 
   
+  runApp(const MyApp());
+}*/
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform, //da se pokrene u webu
+  );
   runApp(const MyApp());
 }
 

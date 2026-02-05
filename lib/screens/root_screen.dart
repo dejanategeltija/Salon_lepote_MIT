@@ -4,6 +4,7 @@ import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:salonlepote_mit/screens/home_screen.dart';
 import 'package:salonlepote_mit/screens/search_screen.dart';
 import 'package:salonlepote_mit/screens/profile_screen.dart';
+import 'package:salonlepote_mit/screens/login_screen.dart';
 
 
 class RootScreen extends StatefulWidget {
@@ -42,8 +43,9 @@ class _RootScreenState extends State<RootScreen> {
         }
 
         if (!snapshot.hasData) {
-           return const Scaffold(body: Center(child: Text("Molimo prijavite se (Login Screen)")));
+           return const LoginScreen(); 
         }
+
 
         return Scaffold(
           body: PageView(
