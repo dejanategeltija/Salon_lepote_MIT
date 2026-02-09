@@ -4,7 +4,6 @@ import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:salonlepote_mit/screens/home_screen.dart';
 import 'package:salonlepote_mit/screens/search_screen.dart';
 import 'package:salonlepote_mit/screens/profile_screen.dart';
-import 'package:salonlepote_mit/screens/login_screen.dart';
 
 
 class RootScreen extends StatefulWidget {
@@ -42,9 +41,9 @@ class _RootScreenState extends State<RootScreen> {
           );
         }
 
-        if (!snapshot.hasData) {
+       /* if (!snapshot.hasData) {
            return const LoginScreen(); 
-        }
+        }*/
 
 
         return Scaffold(

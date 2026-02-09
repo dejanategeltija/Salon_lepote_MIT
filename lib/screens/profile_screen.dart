@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:provider/provider.dart';
 import 'package:salonlepote_mit/providers/theme_provider.dart';
+import 'package:salonlepote_mit/screens/login_screen.dart'; // Dodat import za LoginScreen
 import 'package:salonlepote_mit/widgets/title_text.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -53,67 +54,94 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+      // DODATO: Provera da li je korisnik ulogovan
+      body: user == null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const TitlesTextWidget(label: "Niste prijavljeni", fontSize: 20),
+                  const SizedBox(height: 10),
+                  const Text("Prijavite se da biste videli vaš profil."),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF212121),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      );
+                    },
+                    icon: const Icon(IconlyLight.login),
+                    label: const Text("Prijavi se"),
+                  ),
+                ],
+              ),
+            )
+          : SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    user?.email ?? "Gost",
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user.email ?? "Korisnik",
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(thickness: 1),
+                  const Padding(
+                    padding: EdgeInsets.all(15.0),
+                    child: TitlesTextWidget(label: "Podešavanja", fontSize: 18),
+                  ),
+                  SwitchListTile(
+                    title: Text(themeProvider.getIsDarkTheme
+                        ? "Tamni režim"
+                        : "Svetli režim"),
+                    secondary: Icon(themeProvider.getIsDarkTheme
+                        ? Icons.dark_mode
+                        : Icons.light_mode),
+                    value: themeProvider.getIsDarkTheme,
+                    onChanged: (value) {
+                      themeProvider.setDarkTheme(themeValue: value);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(IconlyLight.calendar),
+                    title: const Text("Moji zakazani termini"),
+                    trailing: const Icon(IconlyLight.arrowRightCircle),
+                    onTap: () {
+                      // Ovde ćeš kasnije dodati navigaciju ka AppointmentsScreen
+                    },
+                  ),
+                  const Divider(thickness: 1),
+                  const SizedBox(height: 20),
+                  // Dugme za Logout
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () => _showLogoutDialog(context),
+                      icon: const Icon(IconlyLight.logout, color: Colors.red),
+                      label: const Text(
+                        "Odjavi se",
+                        style: TextStyle(
+                            color: Colors.red, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            const Divider(thickness: 1),
-            const Padding(
-              padding: EdgeInsets.all(15.0),
-              child: TitlesTextWidget(label: "Podešavanja", fontSize: 18),
-            ),
-            SwitchListTile(
-              title: Text(themeProvider.getIsDarkTheme
-                  ? "Tamni režim"
-                  : "Svetli režim"),
-              secondary: Icon(themeProvider.getIsDarkTheme
-                  ? Icons.dark_mode
-                  : Icons.light_mode),
-              value: themeProvider.getIsDarkTheme,
-              onChanged: (value) {
-                themeProvider.setDarkTheme(themeValue: value);
-              },
-            ),
-            ListTile(
-              leading: const Icon(IconlyLight.calendar),
-              title: const Text("Moji zakazani termini"),
-              trailing: const Icon(IconlyLight.arrowRightCircle),
-              onTap: () {
-                // Ovde ćeš kasnije dodati navigaciju ka AppointmentsScreen
-              },
-            ),
-            const Divider(thickness: 1),
-            const SizedBox(height: 20),
-            // Dugme za Logout
-            Center(
-              child: TextButton.icon(
-                onPressed: () => _showLogoutDialog(context),
-                icon: const Icon(IconlyLight.logout, color: Colors.red),
-                label: const Text(
-                  "Odjavi se",
-                  style: TextStyle(
-                      color: Colors.red, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
