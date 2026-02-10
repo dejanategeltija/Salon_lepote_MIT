@@ -5,6 +5,7 @@ import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:provider/provider.dart';
 import 'package:salonlepote_mit/providers/theme_provider.dart';
 import 'package:salonlepote_mit/screens/login_screen.dart';
+import 'package:salonlepote_mit/screens/root_screen.dart';
 import 'package:salonlepote_mit/widgets/title_text.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -18,7 +19,6 @@ class _SearchScreenState extends State<SearchScreen> {
   late TextEditingController searchTextController;
   final user = FirebaseAuth.instance.currentUser;
 
-  // PROVERA ADMINA
   bool get isAdmin => user != null && user!.email == 'admin@salon.com';
 
   @override
@@ -54,18 +54,17 @@ class _SearchScreenState extends State<SearchScreen> {
             IconButton(
               onPressed: () {
                 Navigator.push(
-                  context, 
-                  MaterialPageRoute(builder: (context) => const LoginScreen())
-                );
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const LoginScreen()));
               },
               icon: const Icon(Icons.login),
               tooltip: 'Prijava',
             ),
           if (user != null)
             IconButton(
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                setState(() {});
+              onPressed: () {
+                _showLogoutDialog(context);
               },
               icon: const Icon(Icons.logout),
               tooltip: 'Odjava',
@@ -79,7 +78,7 @@ class _SearchScreenState extends State<SearchScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
               decoration: const BoxDecoration(
-                color: Colors.black, 
+                color: Colors.black,
               ),
               child: const Text(
                 "Kompletna ponuda salona",
@@ -92,9 +91,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 textAlign: TextAlign.center,
               ),
             ),
-
             const SizedBox(height: 10),
-
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: TextField(
@@ -117,8 +114,6 @@ class _SearchScreenState extends State<SearchScreen> {
                 onChanged: (value) => setState(() {}),
               ),
             ),
-
-            
             if (isAdmin)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -133,12 +128,11 @@ class _SearchScreenState extends State<SearchScreen> {
                   ),
                 ),
               ),
-
             const SizedBox(height: 10),
-
-            // PRIKAZ USLUGA
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('services').snapshots(),
+              stream: FirebaseFirestore.instance
+                  .collection('services')
+                  .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -176,7 +170,6 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  // KARTICA USLUGE 
   Widget _buildServiceGridCard(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     String name = data['name'] ?? 'Usluga';
@@ -194,10 +187,13 @@ class _SearchScreenState extends State<SearchScreen> {
           children: [
             Expanded(
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(15)),
                 child: imageUrl.isNotEmpty
-                    ? Image.network(imageUrl, width: double.infinity, fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 50))
+                    ? Image.network(imageUrl,
+                        width: double.infinity, fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.broken_image, size: 50))
                     : const Icon(Icons.image, size: 50),
               ),
             ),
@@ -205,17 +201,30 @@ class _SearchScreenState extends State<SearchScreen> {
               padding: const EdgeInsets.all(8.0),
               child: Column(
                 children: [
-                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center, maxLines: 1),
+                  Text(name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      maxLines: 1),
+                  Text(data['description'] ?? 'Vrhunska usluga u našem salonu.'),
                   const SizedBox(height: 5),
-                  Text("$duration min / $price RSD", style: const TextStyle(fontSize: 12, color: Colors.brown, fontWeight: FontWeight.w600)),
+                  Text("$duration min / $price RSD",
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.brown,
+                          
+                          fontWeight: FontWeight.w600)),
                   if (isAdmin)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        IconButton(onPressed: () {}, icon: const Icon(Icons.edit, color: Colors.blue, size: 20)),
+                        IconButton(
+                            onPressed: () {},
+                            icon: const Icon(Icons.edit,
+                                color: Colors.blue, size: 20)),
                         IconButton(
                           onPressed: () => _deleteService(doc.id),
-                          icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                          icon: const Icon(Icons.delete,
+                              color: Colors.red, size: 20),
                         ),
                       ],
                     ),
@@ -248,34 +257,58 @@ class _SearchScreenState extends State<SearchScreen> {
       TimeOfDay? pickedTime = await showTimePicker(
         context: context,
         initialTime: const TimeOfDay(hour: 9, minute: 0),
+        helpText: "RADNO VREME: 09:00 - 21:00",
       );
 
       if (pickedTime != null) {
+        if (pickedTime.hour < 9 || pickedTime.hour >= 21) {
+          _showErrorSnackBar("Salon radi od 09:00 do 21:00.");
+          return;
+        }
         _checkAndBook(serviceName, pickedDate, pickedTime);
       }
     }
   }
 
   void _checkAndBook(String serviceName, DateTime date, TimeOfDay time) async {
-    String bookingId = "${date.year}-${date.month}-${date.day}-${time.hour}-${time.minute}";
-    
-    var existing = await FirebaseFirestore.instance
-        .collection('appointments')
-        .where('bookingId', isEqualTo: bookingId)
-        .get();
+    // Jedinstveni ID termina za proveru duplikata
+    String bookingId =
+        "${date.year}-${date.month}-${date.day}-${time.hour}-${time.minute.toString().padLeft(2, '0')}";
 
-    if (existing.docs.isNotEmpty) {
-      _showErrorSnackBar("Termin je već zauzet! Izaberite drugo vreme.");
-    } else {
-      await FirebaseFirestore.instance.collection('appointments').add({
-        'userEmail': user!.email,
-        'serviceName': serviceName,
-        'date': "${date.day}.${date.month}.${date.year}",
-        'time': "${time.hour}:${time.minute.toString().padLeft(2, '0')}",
-        'bookingId': bookingId,
-        'status': 'zakazano'
-      });
-      _showSuccessSnackBar("Uspešno zakazano: $serviceName");
+    // Pokretanje loading indikatora
+    showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()));
+
+    try {
+      var existing = await FirebaseFirestore.instance
+          .collection('appointments')
+          .where('bookingId', isEqualTo: bookingId)
+          .get();
+
+      // Zatvaranje loading indikatora
+      if (!mounted)return;
+       Navigator.pop(context);
+
+      if (existing.docs.isNotEmpty) {
+        _showErrorSnackBar("Termin je već zauzet! Izaberite drugo vreme.");
+      } else {
+        await FirebaseFirestore.instance.collection('appointments').add({
+          'userEmail': user!.email,
+          'serviceName': serviceName,
+          'date': "${date.day}.${date.month}.${date.year}.",
+          'time':
+              "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}",
+          'bookingId': bookingId,
+          'status': 'zakazano',
+          'createdAt': Timestamp.now(),
+        });
+        _showSuccessSnackBar("Uspešno zakazano: $serviceName");
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      _showErrorSnackBar("Greška: $e");
     }
   }
 
@@ -293,15 +326,27 @@ class _SearchScreenState extends State<SearchScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: nController, decoration: const InputDecoration(labelText: "Naziv")),
-              TextField(controller: pController, decoration: const InputDecoration(labelText: "Cena"), keyboardType: TextInputType.number),
-              TextField(controller: dController, decoration: const InputDecoration(labelText: "Trajanje (min)"), keyboardType: TextInputType.number),
-              TextField(controller: iController, decoration: const InputDecoration(labelText: "URL slike")),
+              TextField(
+                  controller: nController,
+                  decoration: const InputDecoration(labelText: "Naziv")),
+              TextField(
+                  controller: pController,
+                  decoration: const InputDecoration(labelText: "Cena"),
+                  keyboardType: TextInputType.number),
+              TextField(
+                  controller: dController,
+                  decoration: const InputDecoration(labelText: "Trajanje (min)"),
+                  keyboardType: TextInputType.number),
+              TextField(
+                  controller: iController,
+                  decoration: const InputDecoration(labelText: "URL slike")),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Otkaži")),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Otkaži")),
           ElevatedButton(
             onPressed: () {
               FirebaseFirestore.instance.collection('services').add({
@@ -328,13 +373,18 @@ class _SearchScreenState extends State<SearchScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Prijavite se"),
-        content: const Text("Da bi ste zakazali termin morate biti prijavljeni na svoj nalog."),
+        content: const Text(
+            "Da bi ste zakazali termin morate biti prijavljeni na svoj nalog."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Odustani")),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Odustani")),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()));
             },
             child: const Text("Prijava"),
           ),
@@ -343,6 +393,46 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  void _showErrorSnackBar(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
-  void _showSuccessSnackBar(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.green));
+  void _showLogoutDialog(BuildContext context) async {
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Odjava"),
+          content: const Text("Da li ste sigurni da želite da se odjavite?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Otkaži"),
+            ),
+            TextButton(
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+
+                if (context.mounted) {
+                  Navigator.pop(context); // zatvaranje dijaloga
+
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const RootScreen(startScreen: 0)),
+                    (route) => false, // brisanje istorije
+                  );
+                }
+              },
+              child:
+                  const Text("Odjavi se", style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showErrorSnackBar(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.red));
+  void _showSuccessSnackBar(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: Colors.green));
 }
