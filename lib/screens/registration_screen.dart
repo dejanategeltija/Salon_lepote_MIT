@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:salonlepote_mit/widgets/title_text.dart';
@@ -42,27 +43,50 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       });
 
       try {
-        // Kreiranje korisnika u Firebase-u
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        // 1. Kreiranje korisnika u Firebase Auth
+        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
 
-        // Opciono: Ovde možemo dodati kod za čuvanje imena u Firestore bazi
-        
+        final User? user = userCredential.user;
+        final String uid = user!.uid;
+
+        // 2. Čuvanje dodatnih podataka u Cloud Firestore
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+          'userId': uid,
+          'userName': _nameController.text.trim(),
+          'userEmail': _emailController.text.trim().toLowerCase(),
+          'createdAt': Timestamp.now(),
+        });
+
         if (!mounted) return;
-        Navigator.pop(context); // Vraća korisnika na login ili ga Root prebacuje dalje
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Uspešna registracija!"), backgroundColor: Colors.green),
+        );
+
+        Navigator.pop(context); 
         
       } on FirebaseAuthException catch (e) {
+
         String message = "Greška pri registraciji";
         if (e.code == 'email-already-in-use') {
           message = "Ovaj email je već u upotrebi.";
         } else if (e.code == 'weak-password') {
-          message = "Lozinka je previše slaba.";
+          message = "Lozinka mora imati najmanje 6 karaktera.";
+        } else if (e.code == 'invalid-email') {
+          message = "Format email adrese nije ispravan.";
+        } else if (e.code == 'network-request-failed') {
+          message = "Proverite internet konekciju.";
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message), backgroundColor: Colors.red),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Greška: ${e.toString()}"), backgroundColor: Colors.red),
         );
       } finally {
         if (mounted) {
@@ -101,54 +125,62 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     Container(height: 1, width: 140, color: Colors.grey.shade400),
                     const SizedBox(height: 40),
                     
-                    // Polje za ime
                     TextFormField(
                       controller: _nameController,
+                      textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                         labelText: "Ime i prezime",
                         border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person_outline),
                       ),
                       validator: (value) => value!.isEmpty ? "Unesite ime" : null,
                     ),
                     const SizedBox(height: 16),
 
-                    // Email polje
                     TextFormField(
                       controller: _emailController,
+                      textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                         labelText: "Email",
                         border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.email_outlined),
                       ),
                       keyboardType: TextInputType.emailAddress,
-                      validator: (value) => (value == null || !value.contains('@')) ? "Neispravan email" : null,
+                      validator: (value) {
+                        if (value == null || value.isEmpty || !value.contains('@')) {
+                          return "Unesite validan email";
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
-                    // Lozinka
                     TextFormField(
                       controller: _passwordController,
                       obscureText: true,
+                      textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                         labelText: "Lozinka",
                         border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.lock_outline),
                       ),
                       validator: (value) => value!.length < 6 ? "Minimum 6 karaktera" : null,
                     ),
                     const SizedBox(height: 16),
 
-                    // Potvrda lozinke
                     TextFormField(
                       controller: _confirmPasswordController,
                       obscureText: true,
+                      textInputAction: TextInputAction.done,
                       decoration: const InputDecoration(
                         labelText: "Potvrdite lozinku",
                         border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.lock_reset),
                       ),
                       validator: (value) => value != _passwordController.text ? "Lozinke se ne poklapaju" : null,
                     ),
                     const SizedBox(height: 32),
 
-                    // Dugme za registraciju
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -161,9 +193,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         onPressed: _isLoading ? null : _handleRegistration,
                         child: _isLoading 
                           ? const CircularProgressIndicator(color: Colors.white) 
-                          : const Text("Registruj se"),
+                          : const Text("Registruj se", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                     ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),

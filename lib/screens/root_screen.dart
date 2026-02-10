@@ -5,7 +5,6 @@ import 'package:salonlepote_mit/screens/home_screen.dart';
 import 'package:salonlepote_mit/screens/search_screen.dart';
 import 'package:salonlepote_mit/screens/profile_screen.dart';
 
-
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
 
@@ -14,24 +13,24 @@ class RootScreen extends StatefulWidget {
 }
 
 class _RootScreenState extends State<RootScreen> {
-  late List<Widget> screens;
-  int currentScreen = 0; 
+  int currentScreen = 0;
   late PageController controller;
 
   @override
   void initState() {
     super.initState();
-    screens = [
-      const HomeScreen(),
-      const SearchScreen(),
-      const Center(child: Text("Termini uskoro")), 
-      const ProfileScreen(),
-    ];
     controller = PageController(initialPage: currentScreen);
   }
 
   @override
   Widget build(BuildContext context) {
+    final List<Widget> screens = [
+      const HomeScreen(),
+      const SearchScreen(), 
+      const Center(child: Text("Termini uskoro")),
+      const ProfileScreen(),
+    ];
+
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
@@ -41,13 +40,18 @@ class _RootScreenState extends State<RootScreen> {
           );
         }
 
-       /* if (!snapshot.hasData) {
-           return const LoginScreen(); 
-        }*/
-
-
         return Scaffold(
-          body: PageView(
+
+          body: screens[currentScreen], 
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: currentScreen,
+            onDestinationSelected: (index) {
+              setState(() {
+                currentScreen = index;
+              });
+
+    },
+         /*body: PageView(
             physics: const NeverScrollableScrollPhysics(),
             controller: controller,
             children: screens,
@@ -60,7 +64,7 @@ class _RootScreenState extends State<RootScreen> {
                 currentScreen = index;
               });
               controller.jumpToPage(currentScreen);
-            },
+            },*/
             destinations: const [
               NavigationDestination(
                 selectedIcon: Icon(IconlyBold.home),
@@ -70,10 +74,10 @@ class _RootScreenState extends State<RootScreen> {
               NavigationDestination(
                 selectedIcon: Icon(IconlyBold.search),
                 icon: Icon(IconlyLight.search),
-                label: "Pretraga",
+                label: "Usluge",
               ),
               NavigationDestination(
-                selectedIcon: Icon(IconlyBold.calendar), 
+                selectedIcon: Icon(IconlyBold.calendar),
                 icon: Icon(IconlyLight.calendar),
                 label: "Termini",
               ),

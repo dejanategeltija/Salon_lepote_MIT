@@ -2,9 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'package:salonlepote_mit/providers/theme_provider.dart';
 import 'package:salonlepote_mit/screens/login_screen.dart';
 import 'package:salonlepote_mit/widgets/title_text.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,7 +25,6 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const TitlesTextWidget(label: "Salon Lepote Mio"),
         actions: [
-          // Ikonica za promenu teme (Mesec/Sunce)
           IconButton(
             onPressed: () {
               themeProvider.setDarkTheme(
@@ -33,12 +34,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? Icons.light_mode
                 : Icons.dark_mode),
           ),
-          
-          // IKONICA ZA PRIJAVU (Pojavljuje se samo ako korisnik NIJE ulogovan)
           if (user == null)
             IconButton(
               onPressed: () {
-                // Direktna navigacija na login stranicu bez dijaloga
                 Navigator.push(
                   context, 
                   MaterialPageRoute(builder: (context) => const LoginScreen())
@@ -47,8 +45,6 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.login),
               tooltip: 'Prijava',
             ),
-
-          // Ikonica za odjavu (Pojavljuje se samo ako JESTE ulogovan)
           if (user != null)
             IconButton(
               onPressed: () async {
@@ -78,15 +74,14 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildInfoShape(Icons.diamond_outlined, "Kvalitetni Proizvodi", "Profesionalni preparati.", Colors.blue),
-                _buildInfoShape(Icons.calendar_month_outlined, "Online Zakazivanje", "Rezervišite 24/7.", Colors.green),
-                _buildInfoShape(Icons.star_outline, "Stručni Tim", "Sertifikovani stručnjaci.", Colors.orange),
+                _buildInfoShape(Icons.diamond_outlined, "Kvalitetni Proizvodi", "Koristimo isključivo profesionalne proizvode.", Colors.blue),
+                _buildInfoShape(Icons.calendar_month_outlined, "Online Rezervacija", "Brzo i lako zakažite svoj termin.", Colors.green),
+                _buildInfoShape(Icons.star_outline, "Stručni Tim", "Sertifikovani profesionalci.", Colors.orange),
               ],
             ),
 
             const SizedBox(height: 40),
 
-            // --- 3. NASLOV IZNAD USLUGA ---
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 10),
               child: Text(
@@ -95,9 +90,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // --- 4. LISTA USLUGA ---
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('services').snapshots(),
+              stream: FirebaseFirestore.instance.collection('services').limit(3).snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -117,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 30),
           ],
         ),
       ),
@@ -154,18 +148,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   ElevatedButton(
                     onPressed: () {
                       if (user == null) {
-                        // Korisnik nije ulogovan -> Pitamo ga da li želi na login
                         _showLoginPromptDialog(context);
                       } else {
-                        // Korisnik je ulogovan -> Vodimo ga na pretragu
-                        DefaultTabController.of(context).animateTo(1);
+
+                        try {
+                          DefaultTabController.of(context).animateTo(1);
+                        } catch (e) {
+                          debugPrint("Greška sa TabControllerom: $e");
+                        }
                       }
                     },
                     child: const Text("Zakažite termin"),
                   ),
                   const SizedBox(width: 10),
                   OutlinedButton(
-                    onPressed: () => DefaultTabController.of(context).animateTo(1),
+                    onPressed: () {
+                      try {
+                        DefaultTabController.of(context).animateTo(1);
+                      } catch (e) {
+                        debugPrint("TabController nije pronađen. Proveri RootScreen strukturu.");
+                      }
+                    },
                     style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white)),
                     child: const Text("Istražite Usluge", style: TextStyle(color: Colors.white)),
                   ),
@@ -189,10 +192,8 @@ class _HomeScreenState extends State<HomeScreen> {
       child: InkWell(
         onTap: () {
           if (user == null) {
-            // Korisnik nije ulogovan -> Pitamo ga da li želi na login
             _showLoginPromptDialog(context);
           } else {
-            // Korisnik je ulogovan -> Otvaramo dijalog za zakazivanje
             _showBookingDialog(context, name);
           }
         },
@@ -216,7 +217,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --- DIJALOG KOJI PITA KORISNIKA DA LI ŽELI DA SE ULOGUJE ---
   void _showLoginPromptDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -224,27 +224,14 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text("Potrebna prijava"),
         content: const Text("Da biste zakazali termin, morate biti prijavljeni na svoj nalog. Želite li da se prijavite sada?"),
         actions: [
-          // OPCIJA: NE
           TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Zatvori dijalog
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Morate biti ulogovani ako želite da zakažete termin."),
-                  duration: Duration(seconds: 3),
-                ),
-              );
-            },
+            onPressed: () => Navigator.pop(context),
             child: const Text("Ne", style: TextStyle(color: Colors.grey)),
           ),
-          // OPCIJA: DA
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context); // Zatvori dijalog
-              Navigator.push(
-                context, 
-                MaterialPageRoute(builder: (context) => const LoginScreen())
-              );
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
             },
             child: const Text("Da"),
           ),
@@ -267,9 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _placeholderImage() {
-    return Container(height: 180, width: double.infinity, color: Colors.grey[300], child: const Icon(Icons.image_not_supported));
-  }
+  Widget _placeholderImage() => Container(height: 180, width: double.infinity, color: Colors.grey[300], child: const Icon(Icons.image_not_supported));
 
   void _showBookingDialog(BuildContext context, String serviceName) {
     showDialog(

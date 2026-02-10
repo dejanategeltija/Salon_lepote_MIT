@@ -1,15 +1,15 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart'; 
 import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:provider/provider.dart';
 import 'package:salonlepote_mit/providers/theme_provider.dart';
-import 'package:salonlepote_mit/screens/login_screen.dart'; // Dodat import za LoginScreen
+import 'package:salonlepote_mit/screens/login_screen.dart'; 
+import 'package:salonlepote_mit/screens/root_screen.dart';
 import 'package:salonlepote_mit/widgets/title_text.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  // Funkcija za prikazivanje dijaloga pre odjave
   Future<void> _showLogoutDialog(BuildContext context) async {
     await showDialog(
       context: context,
@@ -19,14 +19,22 @@ class ProfileScreen extends StatelessWidget {
           content: const Text("Da li ste sigurni da želite da se odjavite?"),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context), // Zatvara samo dijalog
+              onPressed: () => Navigator.pop(context), 
               child: const Text("Otkaži"),
             ),
             TextButton(
               onPressed: () async {
+
                 await FirebaseAuth.instance.signOut();
+                
                 if (context.mounted) {
-                  Navigator.pop(context); // Zatvara dijalog
+                  Navigator.pop(context); //zatvaranje dijaloga
+                  
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const RootScreen()),//vracamo korisnika na rootscreen
+                    (route) => false, //brisanje istorije
+                  );
                 }
               },
               child: const Text("Odjavi se", style: TextStyle(color: Colors.red)),
@@ -54,7 +62,7 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
       ),
-      // DODATO: Provera da li je korisnik ulogovan
+
       body: user == null
           ? Center(
               child: Column(
@@ -127,7 +135,7 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const Divider(thickness: 1),
                   const SizedBox(height: 20),
-                  // Dugme za Logout
+
                   Center(
                     child: TextButton.icon(
                       onPressed: () => _showLogoutDialog(context),

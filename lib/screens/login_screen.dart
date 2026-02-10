@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart'; 
 import 'package:flutter/material.dart';
 import 'package:salonlepote_mit/screens/registration_screen.dart';
+import 'package:salonlepote_mit/screens/root_screen.dart'; 
 import 'package:salonlepote_mit/widgets/title_text.dart'; 
 
 class LoginScreen extends StatefulWidget {
@@ -30,7 +31,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // FUNKCIJA ZA PRIJAVU
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -38,24 +38,40 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       try {
+        // 1. Pokušaj prijave na Firebase
         await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
-        // Ako uspe, RootScreen će automatski prebaciti na Home zbog Stream-a
+        
+        // 2. Ako je prijava uspešna, prebaci korisnika na RootScreen
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const RootScreen()), 
+          (route) => false, // Briše istoriju stranica tako da "back" ne vraća na login
+        );
+
       } on FirebaseAuthException catch (e) {
         String message = "Greška pri prijavi";
-        if (e.code == 'user-not-found') {
-          message = "Korisnik nije pronađen.";
-        } else if (e.code == 'wrong-password') {
-          message = "Pogrešna lozinka.";
+        
+        if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
+          message = "Neispravan email ili lozinka.";
         } else if (e.code == 'invalid-email') {
           message = "Email format nije ispravan.";
+        } else if (e.code == 'user-disabled') {
+          message = "Ovaj korisnički nalog je deaktiviran.";
+        } else if (e.code == 'network-request-failed') {
+          message = "Nema internet konekcije.";
         }
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(message), 
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       } finally {
         if (mounted) {
@@ -70,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: Colors.white, 
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -97,11 +113,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     
                     TextFormField(
                       controller: _emailController,
+                      textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                         labelText: "Email",
                         hintText: "Unesite vaš email",
+                        prefixIcon: Icon(Icons.email_outlined),
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
                       keyboardType: TextInputType.emailAddress,
                       validator: (value) {
@@ -116,11 +133,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: true,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _handleLogin(),
                       decoration: const InputDecoration(
                         labelText: "Lozinka",
                         hintText: "Unesite vašu lozinku",
+                        prefixIcon: Icon(Icons.lock_outline),
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
                       validator: (value) {
                         if (value == null || value.length < 6) {
@@ -131,7 +150,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 32),
                     
-                    // Dugme za prijavu
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -139,63 +157,53 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF212121),
                           foregroundColor: Colors.white,
-                          elevation: 0,
+                          elevation: 2,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                         onPressed: _isLoading ? null : _handleLogin,
                         child: _isLoading 
                           ? const CircularProgressIndicator(color: Colors.white)
                           : const Text(
-                              "Prijava",
+                              "PRIJAVA",
                               style: TextStyle(
                                 fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 1.1,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.2,
                               ),
                             ),
                       ),
                     ),
                     
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
                     
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextButton(
-                            onPressed: () {
-                              // Ovde dodajemo funkciju za zaboravljenu lozinku
-                            },
-                            style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                            child: const Text(
-                              "Zaboravili ste lozinku?",
-                              style: TextStyle(
-                                color: Colors.blue,
-                                decoration: TextDecoration.underline,
+                    Column(
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                          },
+                          child: const Text("Zaboravili ste lozinku?"),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text("Nemate nalog?"),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const RegistrationScreen()),
+                                );
+                              },
+                              child: const Text(
+                                "Registrujte se",
+                                style: TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const RegistrationScreen()),
-                              );
-                            },
-                            style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                            child: const Text(
-                              "Registrujte se kao novi korisnik",
-                              style: TextStyle(
-                                color: Colors.blue,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
