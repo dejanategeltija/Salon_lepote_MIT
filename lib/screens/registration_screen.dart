@@ -43,7 +43,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       });
 
       try {
-        // 1. Kreiranje korisnika u Firebase Auth
+        // Kreiranje korisnika u Firebase Auth
         UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
@@ -52,7 +52,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         final User? user = userCredential.user;
         final String uid = user!.uid;
 
-        // 2. Čuvanje dodatnih podataka u Cloud Firestore
+        // Čuvanje dodatnih podataka u Cloud Firestore
         await FirebaseFirestore.instance.collection('users').doc(uid).set({
           'userId': uid,
           'userName': _nameController.text.trim(),

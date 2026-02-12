@@ -15,7 +15,7 @@ class ThemeProvider with ChangeNotifier {
     SharedPreferences pref = await SharedPreferences.getInstance();
     await pref.setBool(themeStatus, themeValue);
     _darkTheme = themeValue;
-    notifyListeners();
+    notifyListeners();  //javlja aplikaciji da se osvezi
   }
 
   Future<bool> getTheme() async {

@@ -38,18 +38,16 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       try {
-        // 1. Pokušaj prijave na Firebase
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
+        await FirebaseAuth.instance.signInWithEmailAndPassword(  //pokusaj prijave na bazu
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
         
-        // 2. Ako je prijava uspešna, prebaci korisnika na RootScreen
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const RootScreen()), 
-          (route) => false, // Briše istoriju stranica tako da "back" ne vraća na login
+          (route) => false, // brise istoriju stranica, da ne vraća na login
         );
 
       } on FirebaseAuthException catch (e) {

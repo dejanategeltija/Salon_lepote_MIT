@@ -17,9 +17,6 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   late TextEditingController searchTextController;
-  final user = FirebaseAuth.instance.currentUser;
-
-  bool get isAdmin => user != null && user!.email == 'admin@salon.com';
 
   @override
   void initState() {
@@ -36,6 +33,8 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final user = FirebaseAuth.instance.currentUser;
+    final bool isAdmin = user != null && user.email == 'admin@gmail.com';
 
     return Scaffold(
       appBar: AppBar(
@@ -153,13 +152,13 @@ class _SearchScreenState extends State<SearchScreen> {
                   padding: const EdgeInsets.all(12),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 0.70,
+                    childAspectRatio: 0.62,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                   ),
                   itemCount: filteredDocs.length,
                   itemBuilder: (context, index) {
-                    return _buildServiceGridCard(filteredDocs[index]);
+                    return _buildServiceGridCard(filteredDocs[index], isAdmin);
                   },
                 );
               },
@@ -170,18 +169,20 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildServiceGridCard(DocumentSnapshot doc) {
+  Widget _buildServiceGridCard(DocumentSnapshot doc, bool isAdmin) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     String name = data['name'] ?? 'Usluga';
     String price = data['price']?.toString() ?? '0';
     String imageUrl = data['imageUrl'] ?? '';
     String duration = data['duration']?.toString() ?? '30';
+    String description =
+        data['description'] ?? 'Vrhunska usluga u našem salonu.';
 
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: InkWell(
-        onTap: () => _handleTap(name),
+        onTap: () => _handleTap(name, price, duration),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -191,7 +192,8 @@ class _SearchScreenState extends State<SearchScreen> {
                     const BorderRadius.vertical(top: Radius.circular(15)),
                 child: imageUrl.isNotEmpty
                     ? Image.network(imageUrl,
-                        width: double.infinity, fit: BoxFit.cover,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) =>
                             const Icon(Icons.broken_image, size: 50))
                     : const Icon(Icons.image, size: 50),
@@ -205,24 +207,30 @@ class _SearchScreenState extends State<SearchScreen> {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                       maxLines: 1),
-                  Text(data['description'] ?? 'Vrhunska usluga u našem salonu.'),
+                  Text(
+                    description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 5),
                   Text("$duration min / $price RSD",
                       style: const TextStyle(
                           fontSize: 12,
                           color: Colors.brown,
-                          
                           fontWeight: FontWeight.w600)),
                   if (isAdmin)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         IconButton(
-                            onPressed: () {},
+                            onPressed: () =>
+                                _showEditServiceDialog(context, doc),
                             icon: const Icon(Icons.edit,
                                 color: Colors.blue, size: 20)),
                         IconButton(
-                          onPressed: () => _deleteService(doc.id),
+                          onPressed: () => _confirmDelete(context, doc.id, name),
                           icon: const Icon(Icons.delete,
                               color: Colors.red, size: 20),
                         ),
@@ -237,15 +245,191 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  void _handleTap(String serviceName) {
+  void _confirmDelete(BuildContext context, String id, String name) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Potvrda brisanja"),
+        content: Text("Da li ste sigurni da želite da obrišete uslugu: $name?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Otkaži"),
+          ),
+          TextButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance
+                  .collection('services')
+                  .doc(id)
+                  .delete();
+              if (context.mounted) {
+                Navigator.pop(context);
+                _showSuccessSnackBar("Usluga obrisana.");
+              }
+            },
+            child: const Text("Obriši", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditServiceDialog(BuildContext context, DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final nController = TextEditingController(text: data['name']);
+    final pController = TextEditingController(text: data['price'].toString());
+    final dController =
+        TextEditingController(text: data['duration'].toString());
+    final iController = TextEditingController(text: data['imageUrl']);
+    final descController = TextEditingController(text: data['description'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Izmeni uslugu"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                  controller: nController,
+                  decoration: const InputDecoration(labelText: "Naziv *")),
+              TextField(
+                  controller: pController,
+                  decoration: const InputDecoration(labelText: "Cena *"),
+                  keyboardType: TextInputType.number),
+              TextField(
+                  controller: dController,
+                  decoration: const InputDecoration(labelText: "Trajanje (min) *"),
+                  keyboardType: TextInputType.number),
+              TextField(
+                  controller: iController,
+                  decoration: const InputDecoration(labelText: "URL slike *")),
+              TextField(
+                  controller: descController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: "Opis *")),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Otkaži")),
+          ElevatedButton(
+            onPressed: () async {
+              if (nController.text.trim().isEmpty ||
+                  pController.text.trim().isEmpty ||
+                  dController.text.trim().isEmpty ||
+                  iController.text.trim().isEmpty ||
+                  descController.text.trim().isEmpty) {
+                _showErrorSnackBar("Sva polja moraju biti popunjena!");
+                return;
+              }
+
+              await FirebaseFirestore.instance
+                  .collection('services')
+                  .doc(doc.id)
+                  .update({
+                'name': nController.text.trim(),
+                'price': int.tryParse(pController.text.trim()) ?? 0,
+                'duration': int.tryParse(dController.text.trim()) ?? 0,
+                'imageUrl': iController.text.trim(),
+                'description': descController.text.trim(),
+              });
+              if (context.mounted) {
+                Navigator.pop(context);
+                _showSuccessSnackBar("Usluga izmenjena!");
+              }
+            },
+            child: const Text("Sačuvaj"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddServiceDialog(BuildContext context) {
+    final nController = TextEditingController();
+    final pController = TextEditingController();
+    final dController = TextEditingController();
+    final iController = TextEditingController();
+    final descController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Nova usluga"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                  controller: nController,
+                  decoration: const InputDecoration(labelText: "Naziv *")),
+              TextField(
+                  controller: pController,
+                  decoration: const InputDecoration(labelText: "Cena *"),
+                  keyboardType: TextInputType.number),
+              TextField(
+                  controller: dController,
+                  decoration: const InputDecoration(labelText: "Trajanje (min) *"),
+                  keyboardType: TextInputType.number),
+              TextField(
+                  controller: iController,
+                  decoration: const InputDecoration(labelText: "URL slike *")),
+              TextField(
+                  controller: descController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(labelText: "Opis *")),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Otkaži")),
+          ElevatedButton(
+            onPressed: () async {
+              if (nController.text.trim().isEmpty ||
+                  pController.text.trim().isEmpty ||
+                  dController.text.trim().isEmpty ||
+                  iController.text.trim().isEmpty ||
+                  descController.text.trim().isEmpty) {
+                _showErrorSnackBar("Molimo popunite sva obavezna polja!");
+                return;
+              }
+
+              await FirebaseFirestore.instance.collection('services').add({
+                'name': nController.text.trim(),
+                'price': int.tryParse(pController.text.trim()) ?? 0,
+                'duration': int.tryParse(dController.text.trim()) ?? 0,
+                'imageUrl': iController.text.trim(),
+                'description': descController.text.trim(),
+              });
+              if (context.mounted) {
+                Navigator.pop(context);
+                _showSuccessSnackBar("Usluga dodata!");
+              }
+            },
+            child: const Text("Dodaj"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleTap(String serviceName, String price, String duration) {
+    final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _showLoginPromptDialog();
     } else {
-      _showBookingPicker(serviceName);
+      _showBookingPicker(serviceName, price, duration);
     }
   }
 
-  Future<void> _showBookingPicker(String serviceName) async {
+  Future<void> _showBookingPicker(
+      String serviceName, String price, String duration) async {
     DateTime? pickedDate = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
@@ -265,17 +449,17 @@ class _SearchScreenState extends State<SearchScreen> {
           _showErrorSnackBar("Salon radi od 09:00 do 21:00.");
           return;
         }
-        _checkAndBook(serviceName, pickedDate, pickedTime);
+        _checkAndBook(serviceName, pickedDate, pickedTime, price, duration);
       }
     }
   }
 
-  void _checkAndBook(String serviceName, DateTime date, TimeOfDay time) async {
-    // Jedinstveni ID termina za proveru duplikata
+  void _checkAndBook(String serviceName, DateTime date, TimeOfDay time,
+      String price, String duration) async {
+    final user = FirebaseAuth.instance.currentUser;
     String bookingId =
         "${date.year}-${date.month}-${date.day}-${time.hour}-${time.minute.toString().padLeft(2, '0')}";
 
-    // Pokretanje loading indikatora
     showDialog(
         context: context,
         barrierDismissible: false,
@@ -287,9 +471,8 @@ class _SearchScreenState extends State<SearchScreen> {
           .where('bookingId', isEqualTo: bookingId)
           .get();
 
-      // Zatvaranje loading indikatora
-      if (!mounted)return;
-       Navigator.pop(context);
+      if (!mounted) return;
+      Navigator.pop(context);
 
       if (existing.docs.isNotEmpty) {
         _showErrorSnackBar("Termin je već zauzet! Izaberite drugo vreme.");
@@ -297,6 +480,8 @@ class _SearchScreenState extends State<SearchScreen> {
         await FirebaseFirestore.instance.collection('appointments').add({
           'userEmail': user!.email,
           'serviceName': serviceName,
+          'price': price,
+          'duration': duration,
           'date': "${date.day}.${date.month}.${date.year}.",
           'time':
               "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}",
@@ -312,69 +497,12 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
-  void _showAddServiceDialog(BuildContext context) {
-    final nController = TextEditingController();
-    final pController = TextEditingController();
-    final dController = TextEditingController();
-    final iController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Nova usluga"),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                  controller: nController,
-                  decoration: const InputDecoration(labelText: "Naziv")),
-              TextField(
-                  controller: pController,
-                  decoration: const InputDecoration(labelText: "Cena"),
-                  keyboardType: TextInputType.number),
-              TextField(
-                  controller: dController,
-                  decoration: const InputDecoration(labelText: "Trajanje (min)"),
-                  keyboardType: TextInputType.number),
-              TextField(
-                  controller: iController,
-                  decoration: const InputDecoration(labelText: "URL slike")),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Otkaži")),
-          ElevatedButton(
-            onPressed: () {
-              FirebaseFirestore.instance.collection('services').add({
-                'name': nController.text,
-                'price': int.parse(pController.text),
-                'duration': int.parse(dController.text),
-                'imageUrl': iController.text,
-              });
-              Navigator.pop(context);
-            },
-            child: const Text("Dodaj"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _deleteService(String id) {
-    FirebaseFirestore.instance.collection('services').doc(id).delete();
-  }
-
   void _showLoginPromptDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Prijavite se"),
-        content: const Text(
-            "Da bi ste zakazali termin morate biti prijavljeni na svoj nalog."),
+        content: const Text("Morate biti prijavljeni da biste zakazali termin."),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
@@ -382,8 +510,7 @@ class _SearchScreenState extends State<SearchScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.push(
-                  context,
+              Navigator.push(context,
                   MaterialPageRoute(builder: (context) => const LoginScreen()));
             },
             child: const Text("Prijava"),
@@ -394,45 +521,37 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _showLogoutDialog(BuildContext context) async {
-    await showDialog(
+    showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Odjava"),
-          content: const Text("Da li ste sigurni da želite da se odjavite?"),
-          actions: [
-            TextButton(
+      builder: (context) => AlertDialog(
+        title: const Text("Odjava"),
+        content: const Text("Da li želite da se odjavite?"),
+        actions: [
+          TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Otkaži"),
-            ),
-            TextButton(
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-
-                if (context.mounted) {
-                  Navigator.pop(context); // zatvaranje dijaloga
-
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const RootScreen(startScreen: 0)),
-                    (route) => false, // brisanje istorije
-                  );
-                }
-              },
-              child:
-                  const Text("Odjavi se", style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        );
-      },
+              child: const Text("Otkaži")),
+          TextButton(
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.pop(context);
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const RootScreen(startScreen: 0)),
+                  (route) => false,
+                );
+              }
+            },
+            child: const Text("Odjavi se", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 
-  void _showErrorSnackBar(String msg) =>
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: Colors.red));
-  void _showSuccessSnackBar(String msg) =>
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: Colors.green));
+  void _showErrorSnackBar(String msg) => ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+  void _showSuccessSnackBar(String msg) => ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.green));
 }

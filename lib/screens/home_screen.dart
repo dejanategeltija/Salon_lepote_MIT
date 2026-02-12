@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import 'package:salonlepote_mit/providers/theme_provider.dart';
 import 'package:salonlepote_mit/screens/login_screen.dart';
 import 'package:salonlepote_mit/screens/root_screen.dart'; 
@@ -58,10 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // --- 1. HERO SECTION ---
             _buildHeroSection(context, user),
 
-            // --- 2. ZAŠTO NAS KLIJENTI BIRAJU ---
             const Padding(
               padding: EdgeInsets.only(top: 30, bottom: 20),
               child: Text(
@@ -108,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
               stream: FirebaseFirestore.instance
                   .collection('services')
                   .limit(3)
-                  .snapshots(),
+                  .snapshots(),  //slusa promene u realnom vremenu
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -118,11 +115,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
 
                 return ListView.builder(
-                  shrinkWrap: true,
+                  shrinkWrap: true,  //zauzimanje mesta liste
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
-                    var serviceDoc = snapshot.data!.docs[index];
+                    var serviceDoc = snapshot.data!.docs[index];   //uzima podatke za jednu uslugu
                     return _buildServiceCard(context, serviceDoc, user);
                   },
                 );
@@ -152,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Container(
           height: 250,
           width: double.infinity,
-          color: Colors.black.withOpacity(0.5),
+          color: Colors.black.withValues(alpha:0.5),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -171,13 +168,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (user == null) {
                         _showLoginPromptDialog(context);
                       } else {
-                        Navigator.pushAndRemoveUntil(
+                        Navigator.push( 
                           context,
                           MaterialPageRoute(
                             builder: (context) =>
                                 const RootScreen(startScreen: 2),
                           ),
-                          (route) => false,
                         );
                       }
                     },
@@ -185,16 +181,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         user == null ? "Zakažite termin" : "Pregledajte termine"),
                   ),
                   const SizedBox(width: 10),
-                  // Istražite Usluge - šalje na SearchScreen (indeks 1)
+                  
+                  // Istražite Usluge
                   OutlinedButton(
                     onPressed: () {
-                      Navigator.pushAndRemoveUntil(
+                      Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) =>
                               const RootScreen(startScreen: 1),
                         ),
-                        (route) => false,
                       );
                     },
                     style: OutlinedButton.styleFrom(
@@ -219,26 +215,24 @@ class _HomeScreenState extends State<HomeScreen> {
     String imageUrl = data['imageUrl'] ?? '';
     String duration = data['duration']?.toString() ?? '30';
 
-
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      child: InkWell(
+      child: InkWell(   //efekat talasa,kartica postaje dugme
         onTap: () {
           if (user == null) {
             _showLoginPromptDialog(context);
           } else {
-            Navigator.pushAndRemoveUntil(
+            Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => const RootScreen(startScreen: 1),
               ),
-              (route) => false,
             );
           }
         },
         child: Column(
           children: [
-            ClipRRect(
+            ClipRRect(  //za zaobljenu ivicu slike
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(10)),
               child: imageUrl.startsWith('http')

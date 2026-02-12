@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_iconly/flutter_iconly.dart';
 import 'package:provider/provider.dart';
 import 'package:salonlepote_mit/providers/theme_provider.dart';
+import 'package:salonlepote_mit/screens/edit_profile_screen.dart';
 import 'package:salonlepote_mit/screens/login_screen.dart';
 import 'package:salonlepote_mit/screens/root_screen.dart';
 import 'package:salonlepote_mit/widgets/title_text.dart';
@@ -123,7 +124,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // naslov ispod appbara sa slikom
                   Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 15, vertical: 10),
@@ -186,12 +186,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: const Text("Zakazani termini"),
                     trailing: const Icon(IconlyLight.arrowRightCircle),
                     onTap: () {
-                      Navigator.pushAndRemoveUntil(
+                      Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => const RootScreen(startScreen: 2),
                         ),
-                        (route) => false, 
+                      );
+                    },
+                  ),
+
+                  ListTile(
+                    leading: const Icon(IconlyLight.edit),
+                    title: const Text("Upravljajte svojim profilom"),
+                    trailing: const Icon(IconlyLight.arrowRightCircle),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const EditProfileScreen(),
+                        ),
                       );
                     },
                   ),

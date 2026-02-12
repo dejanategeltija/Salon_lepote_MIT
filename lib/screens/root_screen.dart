@@ -18,7 +18,7 @@ class _RootScreenState extends State<RootScreen> {
   late PageController controller;
 
   @override
-  void initState() {
+  void initState() {  //poziva se samo kada se ekran ucita
     super.initState();
     currentScreen = widget.startScreen;
     controller = PageController(initialPage: currentScreen);
@@ -34,7 +34,6 @@ class _RootScreenState extends State<RootScreen> {
     ];
 
     return Scaffold(
-      // OVDE NEMA APPBARA - svaki screen ima svoj
       body: PageView(
         physics: const NeverScrollableScrollPhysics(),
         controller: controller,

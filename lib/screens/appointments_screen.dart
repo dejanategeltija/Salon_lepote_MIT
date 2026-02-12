@@ -14,8 +14,7 @@ class AppointmentsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final themeProvider = Provider.of<ThemeProvider>(context);
-
-    final bool isAdmin = user?.email == "admin@gmail.com";
+    final bool isAdmin = user?.email == "admin@gmail.com";  //lozinka:Administrator123
 
     return Scaffold(
       appBar: AppBar(
@@ -30,29 +29,16 @@ class AppointmentsScreen extends StatelessWidget {
                 ? Icons.light_mode
                 : Icons.dark_mode),
           ),
-          if (user == null)
-            IconButton(
-              onPressed: () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const LoginScreen()));
-              },
-              icon: const Icon(Icons.login),
-              tooltip: 'Prijava',
-            ),
           if (user != null)
             IconButton(
-              onPressed: () {
-                _showLogoutDialog(context);
-              },
+              onPressed: () => _showLogoutDialog(context),
               icon: const Icon(Icons.logout),
               tooltip: 'Odjava',
             ),
         ],
       ),
       body: user == null
-          ? const Center(child: Text("Prijavite se da biste videli termine."))
+          ? _buildLoggedOutView(context)
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -88,42 +74,66 @@ class AppointmentsScreen extends StatelessWidget {
                           var appointment = snapshot.data!.docs[index];
                           var data = appointment.data() as Map<String, dynamic>;
                           String docId = appointment.id;
+                          String status = data['status'] ?? 'zakazano';
 
                           return Card(
-                            margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                            // Ako je obrisan, malo ga prozirnijim učinimo (opciono)
+                            margin: const EdgeInsets.symmetric(
+                                horizontal: 15, vertical: 8),
                             child: Opacity(
-                              opacity: data['status'] == 'obrisan' ? 0.6 : 1.0,
+                              opacity: (status == 'otkazan' || status == 'obrisan') ? 0.5 : 1.0,
                               child: ListTile(
                                 leading: Icon(
-                                  data['status'] == 'obrisan' ? Icons.delete_outline : Icons.event_available, 
-                                  color: data['status'] == 'obrisan' ? Colors.grey : Colors.brown
-                                ),
-                                title: Text(data['serviceName'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    (status == 'otkazan' || status == 'obrisan')
+                                        ? Icons.cancel_outlined
+                                        : Icons.event_available,
+                                    color: (status == 'otkazan' || status == 'obrisan')
+                                        ? Colors.grey
+                                        : Colors.brown),
+                                title: Text(data['serviceName'] ?? "Usluga",
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold)),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text("${data['date']} u ${data['time']}"),
-                                    if (isAdmin) Text("Klijent: ${data['userEmail']}", style: const TextStyle(fontSize: 12, color: Colors.blue)),
+                                    Text(
+                                      "Trajanje: ${data['duration'] ?? '/'} min | Cena: ${data['price'] ?? '/'} RSD",
+                                      style: const TextStyle(
+                                          fontSize: 12, color: Colors.brown),
+                                    ),
+                                    if (isAdmin)
+                                      Text("Klijent: ${data['userEmail']}",
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.blue)),
                                   ],
                                 ),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    _buildStatusBadge(data['status']),
-                                    
-                                    if (isAdmin && data['status'] != 'obrisan') ...[
-                                      const SizedBox(width: 8),
-                                      if (data['status'] == 'zakazano')
-                                        IconButton(
-                                          icon: const Icon(Icons.check_circle, color: Colors.green),
-                                          onPressed: () => _updateStatus(docId, 'potvrđeno'),
-                                        ),
+                                    _buildStatusBadge(status),
+                                    const SizedBox(width: 8),
+                                    if (status != 'otkazan' && status != 'obrisan')
                                       IconButton(
-                                        icon: const Icon(Icons.delete, color: Colors.red),
-                                        onPressed: () => _markAsDeleted(context, docId),
+                                        icon: const Icon(Icons.close,
+                                            color: Colors.red),
+                                        tooltip: isAdmin ? 'Obriši termin' : 'Otkaži termin',  //dugme x menja funkciju zavisno od uloge
+                                        onPressed: () {
+                                          if (isAdmin) {
+                                            _deleteAppointment(context, docId);
+                                          } else {
+                                            _cancelAppointment(context, docId);
+                                          }
+                                        },
                                       ),
-                                    ],
+                                    if (isAdmin && status == 'zakazano')
+                                      IconButton(
+                                        icon: const Icon(Icons.check,
+                                            color: Colors.green),
+                                        tooltip: 'Potvrdi termin',
+                                        onPressed: () => _updateStatus(
+                                            docId, 'potvrđeno'),
+                                      ),
                                   ],
                                 ),
                               ),
@@ -139,45 +149,20 @@ class AppointmentsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusBadge(String status) {
-    Color color;
-    switch (status) {
-      case 'potvrđeno': color = Colors.blue; break;
-      case 'obrisan': color = Colors.red; break;
-      case 'otkazan': color = Colors.grey; break; 
-      default: color = Colors.green;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        status.toUpperCase(),
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  Future<void> _updateStatus(String docId, String newStatus) async {
-    await FirebaseFirestore.instance
-        .collection('appointments')
-        .doc(docId)
-        .update({'status': newStatus});
-  }
-
-  Future<void> _markAsDeleted(BuildContext context, String docId) async {
+//funkcija brisanje termina za admina
+  Future<void> _deleteAppointment(BuildContext context, String docId) async {
     bool confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Brisanje termina"),
-        content: const Text("Da li ste sigurni da želite da obrisete ovaj termin?"),
+        content: const Text("Da li ste sigurni da želite da obrišete ovaj termin?"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Otkaži")),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("Ne")),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text("Obriši", style: TextStyle(color: Colors.red)),
+            child: const Text("Da, obriši", style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -191,32 +176,119 @@ class AppointmentsScreen extends StatelessWidget {
     }
   }
 
-  void _showLogoutDialog(BuildContext context) async {
-    await showDialog(
+//funkcija otkazivanje za klijenta
+  Future<void> _cancelAppointment(BuildContext context, String docId) async {
+    bool confirm = await showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Odjava"),
-          content: const Text("Da li ste sigurni da želite da se odjavite?"),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Otkaži")),
-            TextButton(
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => const RootScreen(startScreen: 0)),
-                    (route) => false,
-                  );
-                }
-              },
-              child: const Text("Odjavi se", style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        );
-      },
+      builder: (context) => AlertDialog(
+        title: const Text("Otkazivanje termina"),
+        content: const Text("Da li ste sigurni da želite da otkažete ovaj termin?"),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("Ne")),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Da, otkaži", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm) {
+      await FirebaseFirestore.instance
+          .collection('appointments')
+          .doc(docId)
+          .update({'status': 'otkazan'});
+    }
+  }
+
+  Future<void> _updateStatus(String docId, String newStatus) async {
+    await FirebaseFirestore.instance
+        .collection('appointments')
+        .doc(docId)
+        .update({'status': newStatus});
+  }
+
+  Widget _buildLoggedOutView(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const TitlesTextWidget(label: "Niste prijavljeni", fontSize: 22),
+          const SizedBox(height: 10),
+          const Text("Prijavite se da biste videli vaše termine."),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()));
+            },
+            icon: const Icon(Icons.login),
+            label: const Text("Prijavi se"),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black, foregroundColor: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color color;
+    String text = status;
+
+    switch (status) {
+      case 'potvrđeno':
+        color = Colors.blue;
+        break;
+      case 'otkazan':
+        color = Colors.orange;
+        break;
+      case 'obrisan':
+        color = Colors.red;
+        text = 'obrisan';
+        break;
+      default:
+        color = Colors.green;
+        text = 'zakazano';
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha:0.2),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Odjava"),
+        content: const Text("Da li želite da se odjavite?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Otkaži")),
+          TextButton(
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RootScreen(startScreen: 0)),
+                  (route) => false,
+                );
+              }
+            },
+            child: const Text("Odjavi se", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 }
